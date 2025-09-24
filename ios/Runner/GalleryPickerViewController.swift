@@ -11,25 +11,26 @@ class GalleryPickerViewController: UIViewController {
     private var mediaAssets: [MediaAsset] = []
     private var filteredAssets: [MediaAsset] = []
     private var currentAlbum: String = "All Photos"
+    private var currentFilter: String = "All Photos"
     private var albums: [String] = []
     private var albumCollections: [PHAssetCollection] = []
     private var imageManager = PHCachingImageManager()
     
     // MARK: - UI Components
-    private let navigationBar = UIView()
-    private let cancelButton = UIButton(type: .system)
-    private let albumTitleLabel = UILabel()
-    private let doneButton = UIButton(type: .system)
-    private let searchBar = UISearchBar()
-    private let albumTriggerButton = UIButton(type: .system)
-    private let albumDropdownView = UIView()
-    private let albumTableView = UITableView()
     private let collectionView: UICollectionView
-    private let durationLabel = UILabel()
-    private let overlayView = UIView()
     
-    private var isDropdownVisible = false
-    private let dropdownHeight: CGFloat = 400
+    // New UI Components for updated design
+    private let searchButton = UIButton(type: .system)
+    private let searchTextField = UITextField()
+    private let searchContainerView = UIView()
+    private let filterPageView = UIView()
+    private let filterTableView = UITableView()
+    private let overlayView = UIView()
+    private let customFilterButton = UIButton(type: .system)
+    
+    private var isSearchActive = false
+    private var isFilterPageVisible = false
+    private var keyboardHeight: CGFloat = 0
     
     // MARK: - Initialization
     init() {
@@ -47,9 +48,15 @@ class GalleryPickerViewController: UIViewController {
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
+        print("iOS: GalleryPickerViewController viewDidLoad called")
         setupUI()
         setupConstraints()
         requestPhotoLibraryPermission()
+        
+        // Debug initial state
+        print("iOS: Initial searchButton.isHidden: \(searchButton.isHidden)")
+        print("iOS: Initial searchTextField.isHidden: \(searchTextField.isHidden)")
+        print("iOS: Initial searchContainerView.isHidden: \(searchContainerView.isHidden)")
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -68,92 +75,8 @@ class GalleryPickerViewController: UIViewController {
         // Set up full screen appearance with dark theme
         view.backgroundColor = .black
         
-        // Navigation Bar - iOS Photos app style
-        navigationBar.backgroundColor = .black
-        navigationBar.layer.shadowColor = UIColor.black.cgColor
-        navigationBar.layer.shadowOffset = CGSize(width: 0, height: 0.5)
-        navigationBar.layer.shadowOpacity = 0.1
-        navigationBar.layer.shadowRadius = 0
-        view.addSubview(navigationBar)
-        
-        // Cancel Button - iOS style
-        cancelButton.setTitle("Cancel", for: .normal)
-        cancelButton.setTitleColor(.white, for: .normal)
-        cancelButton.titleLabel?.font = UIFont.systemFont(ofSize: 17, weight: .regular)
-        cancelButton.addTarget(self, action: #selector(cancelButtonTapped), for: .touchUpInside)
-        navigationBar.addSubview(cancelButton)
-        
-        // Album Title Label - Text only in navigation bar center
-        albumTitleLabel.text = "All Photos"
-        albumTitleLabel.textColor = .white
-        albumTitleLabel.font = UIFont.systemFont(ofSize: 17, weight: .semibold)
-        albumTitleLabel.textAlignment = .center
-        navigationBar.addSubview(albumTitleLabel)
-        
-        // Album Trigger Button - Below search bar with styling
-        albumTriggerButton.setTitle("All Photos", for: .normal)
-        albumTriggerButton.setTitleColor(.label, for: .normal)
-        albumTriggerButton.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .medium)
-        albumTriggerButton.backgroundColor = UIColor.systemGray5
-        albumTriggerButton.layer.cornerRadius = 10
-        albumTriggerButton.contentEdgeInsets = UIEdgeInsets(top: 0, left: 16, bottom: 0, right: 16)
-        albumTriggerButton.addTarget(self, action: #selector(albumButtonTapped), for: .touchUpInside)
-        
-        // Add chevron icon to trigger button
-        let chevronImage = UIImage(systemName: "chevron.down")
-        albumTriggerButton.setImage(chevronImage, for: .normal)
-        albumTriggerButton.semanticContentAttribute = .forceRightToLeft
-        albumTriggerButton.imageEdgeInsets = UIEdgeInsets(top: 0, left: 8, bottom: 0, right: 0)
-        albumTriggerButton.titleEdgeInsets = UIEdgeInsets(top: 0, left: -8, bottom: 0, right: 0)
-        albumTriggerButton.tintColor = .label
-        view.addSubview(albumTriggerButton)
-        
-        // Done Button - iOS style
-        doneButton.setTitle("Done", for: .normal)
-        doneButton.setTitleColor(.white, for: .normal)
-        doneButton.titleLabel?.font = UIFont.systemFont(ofSize: 17, weight: .semibold)
-        doneButton.addTarget(self, action: #selector(doneButtonTapped), for: .touchUpInside)
-        doneButton.isEnabled = false
-        navigationBar.addSubview(doneButton)
-        
-        // Search Bar - iOS Photos app style
-        searchBar.placeholder = "Search photos and videos"
-        searchBar.delegate = self
-        searchBar.backgroundColor = .systemGray6
-        searchBar.searchBarStyle = .minimal
-        searchBar.layer.cornerRadius = 10
-        searchBar.clipsToBounds = true
-        view.addSubview(searchBar)
-        
-        // Overlay View for dropdown
-        overlayView.backgroundColor = UIColor.black.withAlphaComponent(0.3)
-        overlayView.isHidden = true
-        overlayView.alpha = 0
-        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(overlayTapped))
-        overlayView.addGestureRecognizer(tapGesture)
-        view.addSubview(overlayView)
-        
-        // Album Dropdown - iOS Photos app style
-        albumDropdownView.backgroundColor = UIColor.systemGray5
-        albumDropdownView.layer.cornerRadius = 10
-        albumDropdownView.layer.shadowColor = UIColor.black.cgColor
-        albumDropdownView.layer.shadowOffset = CGSize(width: 0, height: 2)
-        albumDropdownView.layer.shadowOpacity = 0.2
-        albumDropdownView.layer.shadowRadius = 4
-        albumDropdownView.isHidden = true
-        albumDropdownView.alpha = 0
-        view.addSubview(albumDropdownView)
-        
-        albumTableView.backgroundColor = .clear
-        albumTableView.delegate = self
-        albumTableView.dataSource = self
-        albumTableView.register(AlbumTableViewCell.self, forCellReuseIdentifier: "AlbumCell")
-        albumTableView.separatorStyle = .singleLine
-        albumTableView.separatorColor = UIColor.systemGray4
-        albumTableView.layer.cornerRadius = 10
-        albumTableView.clipsToBounds = true
-        albumTableView.rowHeight = 44
-        albumDropdownView.addSubview(albumTableView)
+        // Setup navigation bar with custom filter button
+        setupNavigationBar()
         
         // Collection View - iOS Photos app style
         collectionView.backgroundColor = .black
@@ -163,87 +86,210 @@ class GalleryPickerViewController: UIViewController {
         collectionView.showsVerticalScrollIndicator = false
         view.addSubview(collectionView)
         
-        // Duration Label - iOS Photos app style
-        durationLabel.text = "Total Duration: 0:00"
-        durationLabel.textColor = .white
-        durationLabel.font = UIFont.systemFont(ofSize: 16, weight: .medium)
-        durationLabel.textAlignment = .center
-        durationLabel.backgroundColor = .black
-        view.addSubview(durationLabel)
+        // Search Button - Bottom of screen with exact specs
+        searchButton.backgroundColor = UIColor(red: 0.26, green: 0.26, blue: 0.26, alpha: 1.0) // #424242
+        searchButton.layer.cornerRadius = 25 // More complete radius
+        searchButton.clipsToBounds = true
+        
+        // Add search icon and text with proper layout
+        let searchIcon = UIImage(systemName: "magnifyingglass")
+        let searchIconView = UIImageView(image: searchIcon)
+        searchIconView.tintColor = .white
+        searchIconView.contentMode = .scaleAspectFit
+        
+        let searchLabel = UILabel()
+        searchLabel.text = "Search"
+        searchLabel.textColor = .white
+        searchLabel.font = UIFont.systemFont(ofSize: 16, weight: .medium)
+        
+        let stackView = UIStackView(arrangedSubviews: [searchIconView, searchLabel])
+        stackView.axis = .horizontal
+        stackView.spacing = 8
+        stackView.alignment = .center
+        
+        searchButton.addSubview(stackView)
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            searchIconView.widthAnchor.constraint(equalToConstant: 18),
+            searchIconView.heightAnchor.constraint(equalToConstant: 18),
+            stackView.centerXAnchor.constraint(equalTo: searchButton.centerXAnchor),
+            stackView.centerYAnchor.constraint(equalTo: searchButton.centerYAnchor),
+            stackView.leadingAnchor.constraint(greaterThanOrEqualTo: searchButton.leadingAnchor, constant: 20),
+            stackView.trailingAnchor.constraint(lessThanOrEqualTo: searchButton.trailingAnchor, constant: -20)
+        ])
+        
+        searchButton.addTarget(self, action: #selector(searchButtonTapped), for: .touchUpInside)
+        searchButton.isUserInteractionEnabled = true
+        
+        // Add tap gesture as backup
+        let searchTapGesture = UITapGestureRecognizer(target: self, action: #selector(searchButtonTapped))
+        searchButton.addGestureRecognizer(searchTapGesture)
+        
+        view.addSubview(searchButton)
+        
+        // Search Container View - Hidden by default
+        searchContainerView.backgroundColor = .black
+        searchContainerView.isHidden = true
+        view.addSubview(searchContainerView)
+        
+        // Search Text Field - iOS Photos app style
+        searchTextField.placeholder = "Search photos and videos"
+        searchTextField.textColor = .white
+        searchTextField.backgroundColor = UIColor(red: 0.26, green: 0.26, blue: 0.26, alpha: 1.0) // Same as search button
+        searchTextField.layer.cornerRadius = 25 // Completely rounded (half of height)
+        searchTextField.clipsToBounds = true
+        searchTextField.borderStyle = .none
+        searchTextField.font = UIFont.systemFont(ofSize: 16, weight: .medium)
+        
+        // Add padding to text field
+        let leftPaddingView = UIView(frame: CGRect(x: 0, y: 0, width: 16, height: 50))
+        searchTextField.leftView = leftPaddingView
+        searchTextField.leftViewMode = .always
+        
+        let rightPaddingView = UIView(frame: CGRect(x: 0, y: 0, width: 16, height: 50))
+        searchTextField.rightView = rightPaddingView
+        searchTextField.rightViewMode = .always
+        
+        // Set placeholder color
+        searchTextField.attributedPlaceholder = NSAttributedString(
+            string: "Search photos and videos",
+            attributes: [NSAttributedString.Key.foregroundColor: UIColor.white.withAlphaComponent(0.7)]
+        )
+        
+        searchTextField.delegate = self
+        searchTextField.returnKeyType = .search
+        searchTextField.isHidden = true
+        view.addSubview(searchTextField)
+        
+        // Filter Page View - Full UI page for filtering
+        filterPageView.backgroundColor = UIColor(red: 0.07, green: 0.07, blue: 0.07, alpha: 1.0) // #121212
+        filterPageView.isHidden = true
+        filterPageView.alpha = 0
+        view.addSubview(filterPageView)
+        
+        // Filter Table View
+        filterTableView.backgroundColor = .clear
+        filterTableView.delegate = self
+        filterTableView.dataSource = self
+        filterTableView.register(FilterTableViewCell.self, forCellReuseIdentifier: "FilterCell")
+        filterTableView.separatorStyle = .singleLine
+        filterTableView.separatorColor = UIColor.systemGray4
+        filterTableView.rowHeight = 80
+        filterPageView.addSubview(filterTableView)
+        
+        // Overlay View for filter page and search
+        overlayView.backgroundColor = UIColor.black.withAlphaComponent(0.6)
+        overlayView.isHidden = true
+        overlayView.alpha = 0
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(overlayTapped))
+        overlayView.addGestureRecognizer(tapGesture)
+        view.addSubview(overlayView)
+        
+        // Setup keyboard notifications
+        setupKeyboardNotifications()
+    }
+    
+    private func setupNavigationBar() {
+        // Cancel Button
+        navigationItem.leftBarButtonItem = UIBarButtonItem(
+            title: "Cancel",
+            style: .plain,
+            target: self,
+            action: #selector(cancelButtonTapped)
+        )
+        navigationItem.leftBarButtonItem?.tintColor = .white
+        
+        // Done Button
+        navigationItem.rightBarButtonItem = UIBarButtonItem(
+            title: "Done",
+            style: .done,
+            target: self,
+            action: #selector(doneButtonTapped)
+        )
+        navigationItem.rightBarButtonItem?.tintColor = .white
+        navigationItem.rightBarButtonItem?.isEnabled = false
+        
+        // Custom Filter Button as titleView - Initialize with "All Photos"
+        customFilterButton.setTitle("All Photos ▾", for: .normal)
+        customFilterButton.setTitleColor(.white, for: .normal)
+        customFilterButton.titleLabel?.font = UIFont.systemFont(ofSize: 17, weight: .medium)
+        customFilterButton.addTarget(self, action: #selector(filterButtonTapped), for: .touchUpInside)
+        customFilterButton.sizeToFit()
+        
+        navigationItem.titleView = customFilterButton
+        
+        // Set navigation bar appearance
+        navigationController?.navigationBar.barStyle = .black
+        navigationController?.navigationBar.backgroundColor = .black
+    }
+    
+    private func setupKeyboardNotifications() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(keyboardWillShow),
+            name: UIResponder.keyboardWillShowNotification,
+            object: nil
+        )
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(keyboardWillHide),
+            name: UIResponder.keyboardWillHideNotification,
+            object: nil
+        )
     }
     
     private func setupConstraints() {
-        navigationBar.translatesAutoresizingMaskIntoConstraints = false
-        cancelButton.translatesAutoresizingMaskIntoConstraints = false
-        albumTitleLabel.translatesAutoresizingMaskIntoConstraints = false
-        doneButton.translatesAutoresizingMaskIntoConstraints = false
-        searchBar.translatesAutoresizingMaskIntoConstraints = false
-        albumTriggerButton.translatesAutoresizingMaskIntoConstraints = false
-        overlayView.translatesAutoresizingMaskIntoConstraints = false
-        albumDropdownView.translatesAutoresizingMaskIntoConstraints = false
-        albumTableView.translatesAutoresizingMaskIntoConstraints = false
         collectionView.translatesAutoresizingMaskIntoConstraints = false
-        durationLabel.translatesAutoresizingMaskIntoConstraints = false
+        searchButton.translatesAutoresizingMaskIntoConstraints = false
+        searchContainerView.translatesAutoresizingMaskIntoConstraints = false
+        searchTextField.translatesAutoresizingMaskIntoConstraints = false
+        filterPageView.translatesAutoresizingMaskIntoConstraints = false
+        filterTableView.translatesAutoresizingMaskIntoConstraints = false
+        overlayView.translatesAutoresizingMaskIntoConstraints = false
         
         NSLayoutConstraint.activate([
-            // Navigation Bar
-            navigationBar.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            navigationBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            navigationBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            navigationBar.heightAnchor.constraint(equalToConstant: 44),
-            
-            // Cancel Button
-            cancelButton.leadingAnchor.constraint(equalTo: navigationBar.leadingAnchor, constant: 16),
-            cancelButton.centerYAnchor.constraint(equalTo: navigationBar.centerYAnchor),
-            
-            // Album Title Label
-            albumTitleLabel.centerXAnchor.constraint(equalTo: navigationBar.centerXAnchor),
-            albumTitleLabel.centerYAnchor.constraint(equalTo: navigationBar.centerYAnchor),
-            
-            // Done Button
-            doneButton.trailingAnchor.constraint(equalTo: navigationBar.trailingAnchor, constant: -16),
-            doneButton.centerYAnchor.constraint(equalTo: navigationBar.centerYAnchor),
-            
-            // Search Bar
-            searchBar.topAnchor.constraint(equalTo: navigationBar.bottomAnchor, constant: 8),
-            searchBar.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            searchBar.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            searchBar.heightAnchor.constraint(equalToConstant: 36),
-            
-            // Album Trigger Button
-            albumTriggerButton.topAnchor.constraint(equalTo: searchBar.bottomAnchor, constant: 12),
-            albumTriggerButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            albumTriggerButton.heightAnchor.constraint(equalToConstant: 36),
-            
-            // Overlay View
-            overlayView.topAnchor.constraint(equalTo: searchBar.bottomAnchor),
-            overlayView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            overlayView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            overlayView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            
-            // Album Dropdown
-            albumDropdownView.topAnchor.constraint(equalTo: albumTriggerButton.bottomAnchor, constant: 8),
-            albumDropdownView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            albumDropdownView.widthAnchor.constraint(equalToConstant: 200),
-            albumDropdownView.heightAnchor.constraint(equalToConstant: dropdownHeight),
-            
-            // Album Table View
-            albumTableView.topAnchor.constraint(equalTo: albumDropdownView.topAnchor),
-            albumTableView.leadingAnchor.constraint(equalTo: albumDropdownView.leadingAnchor),
-            albumTableView.trailingAnchor.constraint(equalTo: albumDropdownView.trailingAnchor),
-            albumTableView.bottomAnchor.constraint(equalTo: albumDropdownView.bottomAnchor),
-            
-            // Collection View
-            collectionView.topAnchor.constraint(equalTo: albumTriggerButton.bottomAnchor, constant: 8),
+            // Collection View - Full screen minus search button
+            collectionView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            collectionView.bottomAnchor.constraint(equalTo: durationLabel.topAnchor, constant: -8),
+            collectionView.bottomAnchor.constraint(equalTo: searchButton.topAnchor, constant: -16),
             
-            // Duration Label
-            durationLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            durationLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            durationLabel.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8),
-            durationLabel.heightAnchor.constraint(equalToConstant: 24)
+            // Search Button - Bottom of screen, compact and centered
+            searchButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            searchButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
+            searchButton.heightAnchor.constraint(equalToConstant: 50),
+            searchButton.widthAnchor.constraint(equalToConstant: 250),
+            
+            // Search Container View - Full screen when active
+            searchContainerView.topAnchor.constraint(equalTo: view.topAnchor),
+            searchContainerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            searchContainerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            searchContainerView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            
+            // Search Text Field - Full width with 30px padding on sides
+            searchTextField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 30),
+            searchTextField.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -30),
+            searchTextField.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
+            searchTextField.heightAnchor.constraint(equalToConstant: 50),
+            
+            // Filter Page View - Full screen
+            filterPageView.topAnchor.constraint(equalTo: view.topAnchor),
+            filterPageView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            filterPageView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            filterPageView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            
+            // Filter Table View
+            filterTableView.topAnchor.constraint(equalTo: filterPageView.safeAreaLayoutGuide.topAnchor, constant: 20),
+            filterTableView.leadingAnchor.constraint(equalTo: filterPageView.leadingAnchor),
+            filterTableView.trailingAnchor.constraint(equalTo: filterPageView.trailingAnchor),
+            filterTableView.bottomAnchor.constraint(equalTo: filterPageView.bottomAnchor),
+            
+            // Overlay View - Full screen
+            overlayView.topAnchor.constraint(equalTo: view.topAnchor),
+            overlayView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            overlayView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            overlayView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
     }
     
@@ -254,17 +300,73 @@ class GalleryPickerViewController: UIViewController {
         }
     }
     
-    @objc private func albumButtonTapped() {
-        toggleDropdown()
+    @objc private func filterButtonTapped() {
+        showFilterPage()
+    }
+    
+    @objc private func searchButtonTapped() {
+        print("iOS: searchButtonTapped called")
+        print("iOS: searchButton.isHidden before: \(searchButton.isHidden)")
+        print("iOS: searchTextField.isHidden before: \(searchTextField.isHidden)")
+        
+        // Simple logic: hide search button, show text field
+        searchButton.isHidden = true
+        searchTextField.isHidden = false
+        
+        print("iOS: searchButton.isHidden after: \(searchButton.isHidden)")
+        print("iOS: searchTextField.isHidden after: \(searchTextField.isHidden)")
+        print("iOS: searchTextField.placeholder: \(searchTextField.placeholder ?? "nil")")
+        print("iOS: searchTextField.leftView: \(searchTextField.leftView != nil)")
+        print("iOS: searchTextField.rightView: \(searchTextField.rightView != nil)")
+        
+        // Make text field active
+        searchTextField.becomeFirstResponder()
+        
+        print("iOS: Made searchTextField first responder")
+    }
+    
+    @objc private func clearSearchTapped() {
+        searchTextField.text = ""
+        searchTextField.resignFirstResponder()
+        searchTextField.isHidden = true
+        searchButton.isHidden = false
+        // Reset filtered assets to show all
+        filteredAssets = mediaAssets
+        collectionView.reloadData()
     }
     
     @objc private func overlayTapped() {
-        hideDropdown()
+        if isFilterPageVisible {
+            hideFilterPage()
+        }
+    }
+    
+    @objc private func keyboardWillShow(_ notification: Notification) {
+        guard let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
+        keyboardHeight = keyboardFrame.height
+        
+        // Simple keyboard handling - move search field up
+        if !searchTextField.isHidden {
+            UIView.animate(withDuration: 0.3) {
+                self.searchTextField.transform = CGAffineTransform(translationX: 0, y: -self.keyboardHeight - 20)
+            }
+        }
+    }
+    
+    @objc private func keyboardWillHide(_ notification: Notification) {
+        keyboardHeight = 0
+        
+        // Reset search field position
+        if !searchTextField.isHidden {
+            UIView.animate(withDuration: 0.3) {
+                self.searchTextField.transform = .identity
+            }
+        }
     }
     
     @objc private func doneButtonTapped() {
         print("iOS: Done button tapped!")
-        print("iOS: Done button is enabled: \(doneButton.isEnabled)")
+        print("iOS: Done button is enabled: \(navigationItem.rightBarButtonItem?.isEnabled ?? false)")
         print("iOS: selectedAssetIds count: \(selectedAssetIds.count)")
         print("iOS: selectedAssetIds: \(Array(selectedAssetIds))")
         
@@ -303,48 +405,42 @@ class GalleryPickerViewController: UIViewController {
         navigationController?.pushViewController(previewVC, animated: true)
     }
     
-    private func toggleDropdown() {
-        if isDropdownVisible {
-            hideDropdown()
-        } else {
-            showDropdown()
-        }
-    }
-    
-    private func showDropdown() {
-        isDropdownVisible = true
+    // MARK: - Filter Page Methods
+    private func showFilterPage() {
+        isFilterPageVisible = true
         overlayView.isHidden = false
-        albumDropdownView.isHidden = false
+        filterPageView.isHidden = false
         
-        // Bring dropdown to front
-        view.bringSubviewToFront(overlayView)
-        view.bringSubviewToFront(albumDropdownView)
-        
-        // Set initial transform for animation
-        albumDropdownView.transform = CGAffineTransform(scaleX: 0.95, y: 0.95)
-        
-        UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.5) {
-            self.overlayView.alpha = 1.0
-            self.albumDropdownView.alpha = 1.0
-            self.albumDropdownView.transform = CGAffineTransform.identity
+        UIView.animate(withDuration: 0.3) {
+            self.overlayView.alpha = 1
+            self.filterPageView.alpha = 1
         }
     }
     
-    private func hideDropdown() {
-        isDropdownVisible = false
+    private func hideFilterPage() {
+        isFilterPageVisible = false
         
-        UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.5) {
-            self.overlayView.alpha = 0.0
-            self.albumDropdownView.alpha = 0.0
-            self.albumDropdownView.transform = CGAffineTransform(scaleX: 0.95, y: 0.95)
+        UIView.animate(withDuration: 0.3) {
+            self.overlayView.alpha = 0
+            self.filterPageView.alpha = 0
         } completion: { _ in
             self.overlayView.isHidden = true
-            self.albumDropdownView.isHidden = true
-            self.albumDropdownView.transform = CGAffineTransform.identity
+            self.filterPageView.isHidden = true
         }
     }
     
-    // MARK: - Helper Methods
+    // MARK: - Search Methods (Simplified)
+    private func showSearchInterface() {
+        // This method is no longer used - keeping for compatibility
+        searchButtonTapped()
+    }
+    
+    private func hideSearchInterface() {
+        // This method is no longer used - keeping for compatibility
+        searchTextField.resignFirstResponder()
+        searchTextField.isHidden = true
+        searchButton.isHidden = false
+    }
     private func requestPhotoLibraryPermission() {
         PHPhotoLibrary.requestAuthorization { status in
             DispatchQueue.main.async {
@@ -378,8 +474,10 @@ class GalleryPickerViewController: UIViewController {
                 let assets = PHAsset.fetchAssets(in: collection, options: fetchOptions)
                 
                 if assets.count > 0 {
-                    self.albums.append(collection.localizedTitle ?? "Unknown")
+                    let albumName = collection.localizedTitle ?? "Unknown"
+                    self.albums.append(albumName)
                     self.albumCollections.append(collection)
+                    print("iOS: Added album: '\(albumName)' with subtype: \(collection.assetCollectionSubtype.rawValue)")
                 }
             }
         }
@@ -398,7 +496,7 @@ class GalleryPickerViewController: UIViewController {
         }
         
         DispatchQueue.main.async {
-            self.albumTableView.reloadData()
+            self.filterTableView.reloadData()
         }
     }
     
@@ -431,8 +529,8 @@ class GalleryPickerViewController: UIViewController {
         let itemSize = CGSize(width: (collectionView.frame.width - 6) / 4, height: (collectionView.frame.width - 6) / 4)
         imageManager.stopCachingImagesForAllAssets()
         
-        if !mediaAssets.isEmpty {
-            let assets = mediaAssets.prefix(50).compactMap { asset in
+        if !filteredAssets.isEmpty {
+            let assets = filteredAssets.prefix(50).compactMap { asset in
                 PHAsset.fetchAssets(withLocalIdentifiers: [asset.id], options: nil).firstObject
             }
             imageManager.startCachingImages(for: assets, targetSize: itemSize, contentMode: .aspectFill, options: nil)
@@ -441,7 +539,7 @@ class GalleryPickerViewController: UIViewController {
     
     private func updateDoneButtonState() {
         let totalDuration = selectedAssetIds.compactMap { id in
-            mediaAssets.first { $0.id == id }?.duration
+            filteredAssets.first { $0.id == id }?.duration
         }.reduce(0, +)
         
         let isValidDuration = totalDuration >= 5 && totalDuration <= 1200 // 5 seconds to 20 minutes
@@ -454,25 +552,160 @@ class GalleryPickerViewController: UIViewController {
         print("iOS: updateDoneButtonState - hasSelection: \(hasSelection)")
         print("iOS: updateDoneButtonState - shouldEnable: \(shouldEnable)")
         
-        doneButton.isEnabled = shouldEnable
+        navigationItem.rightBarButtonItem?.isEnabled = shouldEnable
         
-        // Update duration label
-        let minutes = totalDuration / 60
-        let seconds = totalDuration % 60
-        durationLabel.text = "Total Duration: \(String(format: "%d:%02d", minutes, seconds))"
-        
-        print("iOS: Done button enabled: \(doneButton.isEnabled)")
+        print("iOS: Done button enabled: \(navigationItem.rightBarButtonItem?.isEnabled ?? false)")
     }
     
     private func filterAssets(for searchText: String) {
         if searchText.isEmpty {
             filteredAssets = mediaAssets
         } else {
-            // For now, just return all assets since we don't have metadata
-            // In a real implementation, you'd search through asset metadata
-            filteredAssets = mediaAssets
+            // Use enhanced search functionality
+            filteredAssets = searchMediaAssets(searchText: searchText)
         }
         collectionView.reloadData()
+    }
+    
+    // MARK: - Enhanced Search Functionality
+    private func searchMediaAssets(searchText: String) -> [MediaAsset] {
+        let searchQuery = searchText.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        if searchQuery.isEmpty {
+            return mediaAssets
+        }
+        
+        // Filter by media type
+        if searchQuery.contains("video") || searchQuery.contains("videos") {
+            return mediaAssets.filter { $0.mediaType == "video" }
+        } else if searchQuery.contains("photo") || searchQuery.contains("photos") || searchQuery.contains("image") || searchQuery.contains("images") {
+            return mediaAssets.filter { $0.mediaType == "image" }
+        }
+        
+        // For more advanced search, you would need to fetch PHAsset metadata
+        return searchAssetsWithMetadata(searchText: searchQuery)
+    }
+    
+    // MARK: - Advanced Search with PHAsset Metadata
+    private func searchAssetsWithMetadata(searchText: String) -> [MediaAsset] {
+        let searchQuery = searchText.lowercased()
+        var filteredResults: [MediaAsset] = []
+        
+        // Get PHAssets for current media assets
+        let assetIds = mediaAssets.map { $0.id }
+        let fetchResult = PHAsset.fetchAssets(withLocalIdentifiers: assetIds, options: nil)
+        
+        fetchResult.enumerateObjects { asset, index, _ in
+            var shouldInclude = false
+            
+            // Search by creation date
+            if let creationDate = asset.creationDate {
+                let formatter = DateFormatter()
+                formatter.dateStyle = .medium
+                let dateString = formatter.string(from: creationDate).lowercased()
+                if dateString.contains(searchQuery) {
+                    shouldInclude = true
+                }
+                
+                // Search by year, month
+                formatter.dateFormat = "yyyy"
+                if formatter.string(from: creationDate).contains(searchQuery) {
+                    shouldInclude = true
+                }
+                
+                formatter.dateFormat = "MMMM"
+                if formatter.string(from: creationDate).lowercased().contains(searchQuery) {
+                    shouldInclude = true
+                }
+            }
+            
+            // Search by duration for videos
+            if asset.mediaType == .video {
+                let duration = Int(asset.duration)
+                let durationString = String(duration)
+                if durationString.contains(searchQuery) {
+                    shouldInclude = true
+                }
+            }
+            
+            // Search by media type
+            let mediaTypeString = asset.mediaType == .video ? "video" : "image"
+            if mediaTypeString.contains(searchQuery) {
+                shouldInclude = true
+            }
+            
+            if shouldInclude && index < self.mediaAssets.count {
+                filteredResults.append(self.mediaAssets[index])
+            }
+        }
+        
+        return filteredResults
+    }
+    
+    // MARK: - Search by Album Name
+    private func searchInCurrentAlbum(searchText: String) {
+        let searchQuery = searchText.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        if searchQuery.isEmpty {
+            filteredAssets = mediaAssets
+            collectionView.reloadData()
+            return
+        }
+        
+        // Search within current album
+        if currentAlbum.lowercased().contains(searchQuery) {
+            // If searching for album name, show all assets in this album
+            filteredAssets = mediaAssets
+        } else {
+            // Search within assets of current album
+            filteredAssets = searchMediaAssets(searchText: searchText)
+        }
+        
+        collectionView.reloadData()
+    }
+    
+    // MARK: - Search State Management
+    private func clearSearch() {
+        searchTextField.text = ""
+        filteredAssets = mediaAssets
+        collectionView.reloadData()
+    }
+    
+    // MARK: - Search Enhancements
+    private func performAdvancedSearch(query: String) -> [MediaAsset] {
+        let searchTerms = query.lowercased().components(separatedBy: " ").filter { !$0.isEmpty }
+        
+        return mediaAssets.filter { asset in
+            // Check media type
+            for term in searchTerms {
+                if term == "video" && asset.mediaType == "video" { return true }
+                if term == "photo" || term == "image" && asset.mediaType == "image" { return true }
+                
+                // Check duration ranges for videos
+                if asset.mediaType == "video" {
+                    if term == "short" && asset.duration < 30 { return true }
+                    if term == "long" && asset.duration > 180 { return true }
+                }
+            }
+            
+            return false
+        }
+    }
+    
+    // Search suggestions
+    private func getSearchSuggestions() -> [String] {
+        return [
+            "videos",
+            "photos", 
+            "images",
+            "short videos",
+            "long videos",
+            "recent",
+            "today",
+            "yesterday",
+            "this week",
+            "this month"
+        ]
     }
 }
 
@@ -490,25 +723,152 @@ extension GalleryPickerViewController: UISearchBarDelegate {
 // MARK: - UITableViewDataSource & UITableViewDelegate
 extension GalleryPickerViewController: UITableViewDataSource, UITableViewDelegate {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        if tableView == filterTableView {
+            return albums.count
+        }
         return albums.count
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "AlbumCell", for: indexPath) as! AlbumTableViewCell
-        let albumName = albums[indexPath.row]
-        cell.configure(with: albumName, isSelected: albumName == currentAlbum)
-        return cell
+        if tableView == filterTableView {
+            let cell = tableView.dequeueReusableCell(withIdentifier: "FilterCell", for: indexPath) as! FilterTableViewCell
+            let albumName = albums[indexPath.row]
+            let count = getAlbumCount(at: indexPath.row)
+            let thumbnail = getAlbumThumbnail(at: indexPath.row)
+            cell.configure(with: albumName, count: count, thumbnail: thumbnail, isSelected: albumName == currentAlbum)
+            return cell
+        } else {
+            let cell = tableView.dequeueReusableCell(withIdentifier: "AlbumCell", for: indexPath) as! AlbumTableViewCell
+            let albumName = albums[indexPath.row]
+            cell.configure(with: albumName, isSelected: albumName == currentAlbum)
+            return cell
+        }
     }
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         currentAlbum = albums[indexPath.row]
-        albumTitleLabel.text = currentAlbum
-        albumTriggerButton.setTitle(currentAlbum, for: .normal)
-        hideDropdown()
+        currentFilter = albums[indexPath.row]
         
-        // Load assets for selected album
-        loadAssetsForAlbum(at: indexPath.row)
+        print("iOS: tableView didSelectRowAt - Selected: \(currentFilter)")
+        print("iOS: Current album: \(currentAlbum)")
+        
+        // Update filter button
+        customFilterButton.setTitle("\(currentFilter) ▾", for: .normal)
+        customFilterButton.sizeToFit()
+        
+        // Load assets for the selected filter
+        loadAssets(for: currentFilter)
+        
+        // Hide filter page after selection
+        if tableView == filterTableView {
+            hideFilterPage()
+        }
+    }
+    
+    private func getAlbumCount(at index: Int) -> Int {
+        let fetchOptions = PHFetchOptions()
+        
+        if index == 0 {
+            // All Photos
+            let assets = PHAsset.fetchAssets(with: fetchOptions)
+            return assets.count
+        } else {
+            // Specific album
+            let collectionIndex = index - 1
+            if collectionIndex < albumCollections.count {
+                let assets = PHAsset.fetchAssets(in: albumCollections[collectionIndex], options: fetchOptions)
+                return assets.count
+            }
+        }
+        return 0
+    }
+    
+    private func getAlbumThumbnail(at index: Int) -> UIImage? {
+        let fetchOptions = PHFetchOptions()
+        fetchOptions.fetchLimit = 1
+        
+        var assets: PHFetchResult<PHAsset>
+        
+        if index == 0 {
+            // All Photos
+            assets = PHAsset.fetchAssets(with: fetchOptions)
+        } else {
+            // Specific album
+            let collectionIndex = index - 1
+            if collectionIndex < albumCollections.count {
+                assets = PHAsset.fetchAssets(in: albumCollections[collectionIndex], options: fetchOptions)
+            } else {
+                assets = PHAsset.fetchAssets(with: fetchOptions)
+            }
+        }
+        
+        guard let asset = assets.firstObject else { return nil }
+        
+        let requestOptions = PHImageRequestOptions()
+        requestOptions.isSynchronous = true
+        requestOptions.deliveryMode = .highQualityFormat
+        
+        var thumbnail: UIImage?
+        PHImageManager.default().requestImage(
+            for: asset,
+            targetSize: CGSize(width: 60, height: 60),
+            contentMode: .aspectFill,
+            options: requestOptions
+        ) { image, _ in
+            thumbnail = image
+        }
+        
+        return thumbnail
+    }
+    
+    private func loadAssets(for filter: String) {
+        print("iOS: loadAssets called with filter: '\(filter)'")
+        let fetchOptions = PHFetchOptions()
+        fetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+        
+        var fetchResult: PHFetchResult<PHAsset>
+        
+        if filter == "All Photos" {
+            print("iOS: Loading all photos")
+            fetchResult = PHAsset.fetchAssets(with: fetchOptions)
+        } else if let index = albums.firstIndex(of: filter), index > 0 {
+            // Album selected from albumCollections
+            let collection = albumCollections[index - 1]
+            print("iOS: Found album at index \(index), collection subtype: \(collection.assetCollectionSubtype.rawValue)")
+            
+            // Check if this is a video album by checking the collection subtype
+            if collection.assetCollectionSubtype == .smartAlbumVideos {
+                // For video albums, fetch only videos
+                print("iOS: Loading videos only")
+                fetchResult = PHAsset.fetchAssets(with: .video, options: fetchOptions)
+            } else {
+                // For other albums, fetch from the specific collection
+                print("iOS: Loading from specific collection")
+                fetchResult = PHAsset.fetchAssets(in: collection, options: fetchOptions)
+            }
+        } else {
+            print("iOS: Filter not found, loading all photos")
+            fetchResult = PHAsset.fetchAssets(with: fetchOptions)
+        }
+        
+        var assets: [MediaAsset] = []
+        fetchResult.enumerateObjects { asset, _, _ in
+            let mediaAsset = MediaAsset(
+                id: asset.localIdentifier,
+                uri: "",
+                mediaType: asset.mediaType == .video ? "video" : "image",
+                duration: asset.mediaType == .video ? Int(asset.duration) : 5
+            )
+            assets.append(mediaAsset)
+        }
+        
+        print("iOS: Loaded \(assets.count) assets")
+        self.filteredAssets = assets
+        DispatchQueue.main.async {
+            self.collectionView.reloadData()
+            self.updateCachingSize()
+        }
     }
     
     private func loadAssetsForAlbum(at index: Int) {
@@ -586,5 +946,38 @@ extension GalleryPickerViewController: UICollectionViewDataSource, UICollectionV
         let totalSpacing = (numberOfColumns - 1) * spacing
         let width = (collectionView.frame.width - totalSpacing) / numberOfColumns
         return CGSize(width: width, height: width)
+    }
+}
+
+// MARK: - UITextFieldDelegate
+extension GalleryPickerViewController: UITextFieldDelegate {
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        if textField == searchTextField {
+            filterAssets(for: textField.text ?? "")
+            textField.resignFirstResponder()
+        }
+        return true
+    }
+    
+    func textFieldDidEndEditing(_ textField: UITextField) {
+        if textField == searchTextField {
+            // Simple logic: when editing ends, hide text field and show search button
+            textField.isHidden = true
+            searchButton.isHidden = false
+        }
+    }
+    
+    func textFieldDidChangeSelection(_ textField: UITextField) {
+        if textField == searchTextField {
+            filterAssets(for: textField.text ?? "")
+        }
+    }
+    
+    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+        if textField == searchTextField {
+            // Just allow text input - no right view to manage
+            return true
+        }
+        return true
     }
 }

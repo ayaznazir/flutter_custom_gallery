@@ -17,6 +17,7 @@
 		D4E5F6789012345678901234 /* AlbumTableViewCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4E5F6789012345678901235 /* AlbumTableViewCell.swift */; };
 		E5F678901234567890123456 /* PreviewViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5F678901234567890123457 /* PreviewViewController.swift */; };
 		F67890123456789012345678 /* GalleryPickerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F67890123456789012345679 /* GalleryPickerViewController.swift */; };
+		G789012345678901234567890 /* FilterTableViewCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = G789012345678901234567891 /* FilterTableViewCell.swift */; };
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
@@ -59,6 +60,7 @@
 		D4E5F6789012345678901235 /* AlbumTableViewCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AlbumTableViewCell.swift; sourceTree = "<group>"; };
 		E5F678901234567890123457 /* PreviewViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PreviewViewController.swift; sourceTree = "<group>"; };
 		F67890123456789012345679 /* GalleryPickerViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GalleryPickerViewController.swift; sourceTree = "<group>"; };
+		G789012345678901234567891 /* FilterTableViewCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FilterTableViewCell.swift; sourceTree = "<group>"; };
 		7AFA3C8E1D35360C0083082E /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = Flutter/Release.xcconfig; sourceTree = "<group>"; };
 		9740EEB21CF90195004384FC /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = Flutter/Debug.xcconfig; sourceTree = "<group>"; };
 		9740EEB31CF90195004384FC /* Generated.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Generated.xcconfig; path = Flutter/Generated.xcconfig; sourceTree = "<group>"; };
@@ -134,6 +136,7 @@
 				D4E5F6789012345678901235 /* AlbumTableViewCell.swift */,
 				E5F678901234567890123457 /* PreviewViewController.swift */,
 				F67890123456789012345679 /* GalleryPickerViewController.swift */,
+				G789012345678901234567891 /* FilterTableViewCell.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 			);
 			path = Runner;
@@ -293,6 +296,7 @@
 				D4E5F6789012345678901234 /* AlbumTableViewCell.swift in Sources */,
 				E5F678901234567890123456 /* PreviewViewController.swift in Sources */,
 				F67890123456789012345678 /* GalleryPickerViewController.swift in Sources */,
+				G789012345678901234567890 /* FilterTableViewCell.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
